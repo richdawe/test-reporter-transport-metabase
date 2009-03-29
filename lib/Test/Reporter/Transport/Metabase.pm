@@ -31,7 +31,6 @@ package Test::Reporter::Transport::Metabase;
 use warnings;
 use strict;
 use base 'Test::Reporter::Transport';
-use CPAN::Metabase::Client::Simple;
 use CPAN::Testers::Report;
 use CPAN::Testers::Fact::LegacyReport;
 use vars qw/$VERSION/;
@@ -41,18 +40,20 @@ $VERSION = eval $VERSION;
 use Data::Dumper;
 
 sub new {
-  my ($class, $user, $key, $uri) = @_;
+  my ($class, $user, $key, $client, $uri) = @_;
 
   # Default to a local server.
   # XXX: Default to some CPAN Testers box?
-  $uri ||= "http://127.0.0.1:3000";
+  $uri ||= 'http://127.0.0.1:3000';
 
-  # XXX: Allow another Metabase transport here, e.g.: plain ol' socket
-  # rather than CPAN::Metabase::Client::Simple.
+  # Default to CPAN::Metabase::Client::Simple.
+  $client ||= 'Simple';
+  $client = "CPAN::Metabase::Client::$client";
 
   return bless {
     user  => $user,
     key => $key,
+    client => $client,
     uri => $uri,
   } => $class;
 }
@@ -60,12 +61,17 @@ sub new {
 sub send {
   my ($self, $report) = @_;
 
-  my $client = CPAN::Metabase::Client::Simple->new(
+  # Load specified metabase client.
+  my $class = $self->{client};
+  eval "require $class";
+
+  my $client = $class->new(
     user => $self->{user},
     key => $self->{key},
     url => $self->{uri},
   );
 
+  # Buidl CPAN::Testers::Report with its various component facts.
   my $report_mb = CPAN::Testers::Report->open(
 # XXX: How are we supposed to report this stuff?
 #    id => 'RICHDAWE/Foo-Bar-1.0.tar.gz',
@@ -104,8 +110,8 @@ sub send {
   $report_mb->close();
 
   # XXX: This assumes the client returns an HTTP::Response.
-  # When we support multiple underlying transports (e.g.: raw sockets
-  # into BINGOS queueing system), that will need changing.
+  # When there are alternative metabase clients (e.g.: raw sockets
+  # into BINGOS queueing system), this will need changing.
   my $response = $client->submit_fact($report_mb);
   if (!$response->is_success()) {
     die $response->status_line();
