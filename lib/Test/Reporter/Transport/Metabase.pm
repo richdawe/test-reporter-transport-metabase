@@ -1,9 +1,38 @@
+# XXX: Where does this package live?
+package CPAN::Testers::Fact::TestSummary;
+use base 'CPAN::Metabase::Fact::Hash';
+
+# XXX: Where does this package live?
+package CPAN::Testers::Fact::TestOutput;
+use base 'CPAN::Metabase::Fact::Hash';
+
+# XXX: Where does this package live?
+package CPAN::Testers::Fact::TesterComment;
+use base 'CPAN::Metabase::Fact::Hash';
+
+# XXX: Where does this package live?
+package CPAN::Testers::Fact::PerlMyConfig;
+use base 'CPAN::Metabase::Fact::Hash';
+
+# XXX: Where does this package live?
+package CPAN::Testers::Fact::TestEnvironment;
+use base 'CPAN::Metabase::Fact::Hash';
+
+# XXX: Where does this package live?
+package CPAN::Testers::Fact::Prereqs;
+use base 'CPAN::Metabase::Fact::Hash';
+
+# XXX: Where does this package live?
+package CPAN::Testers::Fact::InstalledModules;
+use base 'CPAN::Metabase::Fact::Hash';
+
 package Test::Reporter::Transport::Metabase;
 
 use warnings;
 use strict;
 use base 'Test::Reporter::Transport';
 use CPAN::Metabase::Client::Simple;
+use CPAN::Testers::Report;
 use CPAN::Testers::Fact::LegacyReport;
 use vars qw/$VERSION/;
 $VERSION = '1.0';
@@ -18,6 +47,9 @@ sub new {
   # XXX: Default to some CPAN Testers box?
   $uri ||= "http://127.0.0.1:3000";
 
+  # XXX: Allow another Metabase transport here, e.g.: plain ol' socket
+  # rather than CPAN::Metabase::Client::Simple.
+
   return bless {
     user  => $user,
     key => $key,
@@ -28,34 +60,56 @@ sub new {
 sub send {
   my ($self, $report) = @_;
 
-  print Dumper($self);
-
   my $client = CPAN::Metabase::Client::Simple->new(
     user => $self->{user},
     key => $self->{key},
     url => $self->{uri},
   );
 
-  my $fact = CPAN::Testers::Fact::LegacyReport->new({
+  my $report_mb = CPAN::Testers::Report->open(
 # XXX: How are we supposed to report this stuff?
 #    id => 'RICHDAWE/Foo-Bar-1.0.tar.gz',
 #    dist_author => 'RICHDAWE',
 #    dist_file => 'Foo-Bar-1.0.tar.gz',
+    resource => 'RICHDAWE/Foo-Bar-1.0.tar.gz',
+  );
 
-    resource => 'Foo-Bar-1.0.tar.gz',
+  # XXX: Real data
+  foreach (
+    'CPAN::Testers::Fact::TestSummary',
+    'CPAN::Testers::Fact::TestOutput',
+    'CPAN::Testers::Fact::TesterComment',
+    'CPAN::Testers::Fact::PerlMyConfig',
+    'CPAN::Testers::Fact::TestEnvironment',
+    'CPAN::Testers::Fact::Prereqs',
+    'CPAN::Testers::Fact::InstalledModules',
+  ) {
+    $report_mb->add($_ => {});
+  }
 
-    content => {
-      grade => $report->grade(),
-      osname => $^O, # XXX: Good enough?
-      osversion => 42, # XXX: Real data
-      archname => '6502', # XXX: Real data
-      perlversion => $report->perl_version(),
-      textreport => $report->report(),
-    },      
+  $report_mb->add('CPAN::Testers::Fact::LegacyReport' => {
+    grade => $report->grade(),
+    # XXX: Good enough? Need to get this from the perl-v output,
+    # in case we're picking up a report that was originally written
+    # to disk.
+    osname => $^O,
+    osversion => 42, # XXX: Real data
+    archname => '6502', # XXX: Real data
+    perlversion => $report->perl_version(),
+    textreport => $report->report(),
   });
 
-  # XXX: How does this indicate failure?
-  $client->submit_fact($fact);
+  # add more facts?
+
+  $report_mb->close();
+
+  # XXX: This assumes the client returns an HTTP::Response.
+  # When we support multiple underlying transports (e.g.: raw sockets
+  # into BINGOS queueing system), that will need changing.
+  my $response = $client->submit_fact($report_mb);
+  if (!$response->is_success()) {
+    die $response->status_line();
+  }
 }
 
 1;
