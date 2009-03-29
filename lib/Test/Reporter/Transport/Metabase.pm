@@ -4,8 +4,7 @@ use warnings;
 use strict;
 use base 'Test::Reporter::Transport';
 use CPAN::Metabase::Client::Simple;
-# XXX: Use a CPAN Testers fact?
-use CPAN::Metabase::Fact::TestFact;
+use CPAN::Testers::Fact::LegacyReport;
 use vars qw/$VERSION/;
 $VERSION = '1.0';
 $VERSION = eval $VERSION;
@@ -37,18 +36,26 @@ sub send {
     url => $self->{uri},
   );
 
-  my $fact = CPAN::Metabase::Fact::TestFact->new({
-    dist_author => 'RICHDAWE',
-    dist_file => 'Foo-Bar-1.0.tar.gz',
-    content => "I says FAIL!",
-#    content => {
-#      status => $report->grade(),
-#    },
+  my $fact = CPAN::Testers::Fact::LegacyReport->new({
+# XXX: How are we supposed to report this stuff?
+#    id => 'RICHDAWE/Foo-Bar-1.0.tar.gz',
+#    dist_author => 'RICHDAWE',
+#    dist_file => 'Foo-Bar-1.0.tar.gz',
+
+    resource => 'Foo-Bar-1.0.tar.gz',
+
+    content => {
+      grade => $report->grade(),
+      osname => $^O, # XXX: Good enough?
+      osversion => 42, # XXX: Real data
+      archname => '6502', # XXX: Real data
+      perlversion => $report->perl_version(),
+      textreport => $report->report(),
+    },      
   });
 
+  # XXX: How does this indicate failure?
   $client->submit_fact($fact);
-
-  # $report->write();
 }
 
 1;
@@ -57,101 +64,60 @@ __END__
 
 =head1 NAME
 
-Test::Reporter::Transport::Metabase - The great new Test::Reporter::Transport::Metabase!
-
-=head1 VERSION
-
-Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
-
+Test::Reporter::Transport::Metabase - Metabase transport fo Test::Reporter
 
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
+    my $report = Test::Reporter->new(
+        transport => 'Metabase',
+        transport_args => {
+            user => 'USERID',
+            key => '1234567890abcdef',
+            uri => 'http://metabase.server.example:3000/',
+        },
+    );
 
-Perhaps a little code snippet.
+=head1 DESCRIPTION
 
-    use Test::Reporter::Transport::Metabase;
+This module submits a Test::Reporter report to the specified Metabase instance.
 
-    my $foo = Test::Reporter::Transport::Metabase->new();
-    ...
+This requires online operation. If you wish to save reports
+during offline operation, see L<Test::Reporter::Transport::File>.
 
-=head1 EXPORT
+=head1 USAGE
 
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
+See L<Test::Reporter> and L<Test::Reporter::Transport> for general usage
+information.
 
-=head1 FUNCTIONS
+=head1 METHODS
 
-=head2 function1
+These methods are only for internal use by Test::Reporter.
 
-=cut
+=head2 new
 
-sub function1 {
-}
+    my $sender = Test::Reporter::Transport::File->new( $params ); 
+    
+The C<new> method is the object constructor.   
 
-=head2 function2
+=head2 send
 
-=cut
+    $sender->send( $report );
 
-sub function2 {
-}
+The C<send> method transmits the report.  
 
 =head1 AUTHOR
 
-Richard Dawe, C<< <richdawe at cpan.org> >>
+=over
 
-=head1 BUGS
+=item *
 
-Please report any bugs or feature requests to C<bug-test-reporter-transport-metabase at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Test-Reporter-Transport-Metabase>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
-
-
-
-
-=head1 SUPPORT
-
-You can find documentation for this module with the perldoc command.
-
-    perldoc Test::Reporter::Transport::Metabase
-
-
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Test-Reporter-Transport-Metabase>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/Test-Reporter-Transport-Metabase>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/Test-Reporter-Transport-Metabase>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/Test-Reporter-Transport-Metabase>
+Richard Dawe (RICHDAWE)
 
 =back
 
-
-=head1 ACKNOWLEDGEMENTS
-
-
-=head1 COPYRIGHT & LICENSE
-
-Copyright 2009 Richard Dawe, all rights reserved.
+=head1 LICENSE
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
-
 
 =cut
